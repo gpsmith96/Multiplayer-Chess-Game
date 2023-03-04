@@ -9,7 +9,7 @@ class App extends React.Component {
     super();
     this.state = {
         GameIsActive : false,
-        socket : io("https://chess-game-server.onrender.com:8000", {
+        socket : io("https://chess-game-server.onrender.com", {
           transports : ['websocket', 'polling'],
           withCredentials : true
         }),
