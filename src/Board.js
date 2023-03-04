@@ -7,7 +7,6 @@ class Board extends React.Component {
     super();
   }
   render() {
-    console.log(this.props.user);
     return (
       <div className="Board-Container">
         <ul style = { {flexFlow : (this.props.user == "White") ? "row wrap" : "row-reverse wrap-reverse"}}>

@@ -172,7 +172,7 @@ class Game extends React.Component {
   }
 
   render() {
-    console.log(this.state.user);
+
     return (
       <div className="Game">
         <Board user={this.state.user} handleClick={this.handleClickTile} tiles={this.state.board}/>
