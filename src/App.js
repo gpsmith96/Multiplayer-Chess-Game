@@ -9,13 +9,15 @@ class App extends React.Component {
     super();
     this.state = {
         GameIsActive : false,
-        socket : io("https://chess-game-server.onrender.com", {
+        // socket : io("https://chess-game-server.onrender.com", {
+        socket : io("ws://localhost:8000", {
           transports : ['websocket', 'polling'],
           withCredentials : true
         }),
-        connected : false
+        connected : false,
+        color: "White"
       }
-    this.handleClick = this.handleClick.bind(this);
+    this.startGame = this.startGame.bind(this);
   }
 
   componentDidMount() {
@@ -25,26 +27,24 @@ class App extends React.Component {
       this.setState({connected : true})
     });
 
-    this.state.socket.on("message", data => {
-      console.log(data);
-    });
-
-    this.state.socket.on("private message", (anotherSocketId, msg) => {
-      console.log("Private message from " + anotherSocketId + ": " + msg);
+    this.state.socket.on("message", (source, data) => {
+      console.log(source + ": " + data);
     });
   }
 
-  handleClick() {
-    this.setState((prevState) => ({GameIsActive : !prevState.GameIsActive}));
+  startGame(role) {
+    this.setState((prevState) => ({GameIsActive : !prevState.GameIsActive, color : role}));
   }
 
   render() {
     return (
       <div className="App">
+      {this.state.color}
         {this.state.GameIsActive 
-          ? <Game socket={this.state.socket}/>
-          : this.state.connected ? <StartPage startGame={this.handleClick} socket={this.state.socket}/>
-          : "connecting"}
+          ? <Game socket={this.state.socket} color={this.state.color}/>
+          : this.state.connected ? <StartPage startGame={this.startGame} socket={this.state.socket}/>
+          : "connecting"
+      }
       </div>
     );
   }

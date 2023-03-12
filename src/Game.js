@@ -32,8 +32,26 @@ class Game extends React.Component {
         firstMove : true
       }
     }
-    this.state = {board : tempBoard, selectedPiece : {}, user : "White"}
+    this.state = {board : tempBoard, selectedPiece : {}, user : "", moveList : []}
     this.handleClickTile = this.handleClickTile.bind(this);
+  }
+  componentDidMount() {
+    this.setState({user : this.props.color});
+
+    this.props.socket.on("send_move_list", (data) => {
+      let workingBoard = this.state.board.map(tile=>(tile));
+      data.forEach((move, index) => {
+        if (JSON.stringify(move) !== JSON.stringify(this.state.moveList[index])){
+
+          const prevTile = workingBoard.filter(tile => (tile.coordX === move.prevX && tile.coordY === move.prevY))[0];
+          const nextTile = workingBoard.filter(tile => (tile.coordX === move.nextX && tile.coordY === move.nextY))[0];
+
+          this.MovePieces (prevTile, nextTile, workingBoard, false, move.player);
+        }
+      });
+
+      this.setState({board : workingBoard});
+    });
   }
 
   handleClickTile (id) {
@@ -41,8 +59,9 @@ class Game extends React.Component {
     let workingBoard = this.state.board.map(tile=>(tile));
 
     if (!isEmpty(selectedTile.piece) && selectedTile.piece.owner === this.state.user) workingBoard = this.highlightPiece(selectedTile, workingBoard);
-    else if (selectedTile.piece.owner !== this.state.user && !isEmpty(this.state.selectedPiece) && selectedTile.selected !== "") workingBoard = this.MovePieces(selectedTile, workingBoard);
-    else {
+    else if (selectedTile.piece.owner !== this.state.user && !isEmpty(this.state.selectedPiece) && selectedTile.selected !== ""){
+      workingBoard = this.MovePieces(this.state.selectedPiece, selectedTile, workingBoard, true, this.state.user);
+    } else {
       this.setState({selectedPiece : {}});
       workingBoard = workingBoard.map(tile=>{
         tile.selected = "";
@@ -51,18 +70,33 @@ class Game extends React.Component {
     this.setState({board : workingBoard});
   }
 
-  MovePieces (selectedTile, workingBoard) {
+  MovePieces (prevTile, nextTile, workingBoard, emit, player) {
+    const move = {
+      prevX : prevTile.coordX,
+      prevY : prevTile.coordY,
+      nextX : nextTile.coordX,
+      nextY : nextTile.coordY,
+      piece : prevTile.piece.type
+    };
+    if (emit) this.props.socket.emit("add_move", move);
     workingBoard = workingBoard.map(tile=>{
       tile.selected = "";
-      if (tile.id === selectedTile.id) {
-        selectedTile.piece = JSON.parse(JSON.stringify(this.state.selectedPiece.piece));
-        selectedTile.piece.firstMove = false;
+      if (tile.id === nextTile.id) {
+        tile.piece = JSON.parse(JSON.stringify(prevTile.piece));
+        tile.piece.firstMove = false;
       }
       return tile;});
     workingBoard = workingBoard.map(tile=>{
-      if (tile.id === this.state.selectedPiece.id) tile.piece = {};
+      if (tile.id === prevTile.id) tile.piece = {};
       return tile;});
-    this.setState({selectedPiece : {}});
+    move.player = player;
+    this.setState((prevState) => {
+      prevState.moveList.push(move);
+      return {
+        moveList : prevState.moveList,
+        selectedPiece : {}
+      }
+    });
     return workingBoard;
   }
   highlightPiece (selectedTile, workingBoard) {
@@ -172,7 +206,7 @@ class Game extends React.Component {
   }
 
   render() {
-
+    console.log(JSON.stringify(this.state.moveList));
     return (
       <div className="Game">
         <Board user={this.state.user} handleClick={this.handleClickTile} tiles={this.state.board}/>

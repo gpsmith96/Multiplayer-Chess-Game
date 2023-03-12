@@ -23,3 +23,17 @@ button {
   border-radius: 50px;
   font-size: 40px;
 }
+
+.chatBox {
+  width: 400px;
+  height: 400px;
+  border: 2px solid black;
+  overflow: auto;
+
+}
+
+.chatBox li {
+  text-align: left;
+  list-style-type: none;
+  
+}
