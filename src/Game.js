@@ -29,28 +29,33 @@ class Game extends React.Component {
         type : StartingPieces[i].type,
         owner : StartingPieces[i].owner,
         symbol : StartingPieces[i].symbol,
-        firstMove : true
+        firstMove : true,
+        vectors : StartingPieces[i].vectors
       }
     }
-    this.state = {board : tempBoard, selectedPiece : {}, user : "", moveList : []}
+    this.state = {board : tempBoard, selectedPiece : {}, user : "", moveList : [], activePlayer : "White"}
     this.handleClickTile = this.handleClickTile.bind(this);
+    this.handleForfeit = this.handleForfeit.bind(this);
   }
   componentDidMount() {
     this.setState({user : this.props.color});
 
-    this.props.socket.on("send_move_list", (data) => {
+    this.props.socket.on("send_move_list", (data, activePlayer) => {
       let workingBoard = this.state.board.map(tile=>(tile));
       data.forEach((move, index) => {
         if (JSON.stringify(move) !== JSON.stringify(this.state.moveList[index])){
 
-          const prevTile = workingBoard.filter(tile => (tile.coordX === move.prevX && tile.coordY === move.prevY))[0];
-          const nextTile = workingBoard.filter(tile => (tile.coordX === move.nextX && tile.coordY === move.nextY))[0];
+          // const prevTile = workingBoard.filter(tile => (tile.coordX === move.prevX && tile.coordY === move.prevY))[0];
+          // const nextTile = workingBoard.filter(tile => (tile.coordX === move.nextX && tile.coordY === move.nextY))[0];
 
-          this.MovePieces (prevTile, nextTile, workingBoard, false, move.player);
+          this.MovePieces (move, workingBoard, move.player);
         }
       });
 
-      this.setState({board : workingBoard});
+      this.setState({
+        board : workingBoard, 
+        activePlayer : activePlayer
+      });
     });
   }
 
@@ -60,7 +65,18 @@ class Game extends React.Component {
 
     if (!isEmpty(selectedTile.piece) && selectedTile.piece.owner === this.state.user) workingBoard = this.highlightPiece(selectedTile, workingBoard);
     else if (selectedTile.piece.owner !== this.state.user && !isEmpty(this.state.selectedPiece) && selectedTile.selected !== ""){
-      workingBoard = this.MovePieces(this.state.selectedPiece, selectedTile, workingBoard, true, this.state.user);
+      const move = {
+        prevX : this.state.selectedPiece.coordX,
+        prevY : this.state.selectedPiece.coordY,
+        nextX : selectedTile.coordX,
+        nextY : selectedTile.coordY,
+        piece : this.state.selectedPiece.piece.type
+      };
+      this.props.socket.emit("add_move", move);
+      this.setState({selectedPiece : {}});
+      workingBoard = workingBoard.map(tile=>{
+        tile.selected = "";
+        return tile;});
     } else {
       this.setState({selectedPiece : {}});
       workingBoard = workingBoard.map(tile=>{
@@ -70,15 +86,9 @@ class Game extends React.Component {
     this.setState({board : workingBoard});
   }
 
-  MovePieces (prevTile, nextTile, workingBoard, emit, player) {
-    const move = {
-      prevX : prevTile.coordX,
-      prevY : prevTile.coordY,
-      nextX : nextTile.coordX,
-      nextY : nextTile.coordY,
-      piece : prevTile.piece.type
-    };
-    if (emit) this.props.socket.emit("add_move", move);
+  MovePieces (move, workingBoard, player) {
+    const prevTile = workingBoard.filter(tile => (tile.coordX === move.prevX && tile.coordY === move.prevY))[0];
+    const nextTile = workingBoard.filter(tile => (tile.coordX === move.nextX && tile.coordY === move.nextY))[0];
     workingBoard = workingBoard.map(tile=>{
       tile.selected = "";
       if (tile.id === nextTile.id) {
@@ -99,6 +109,7 @@ class Game extends React.Component {
     });
     return workingBoard;
   }
+
   highlightPiece (selectedTile, workingBoard) {
     workingBoard = workingBoard.map(tile=>{
       tile.selected = "";
@@ -112,68 +123,7 @@ class Game extends React.Component {
     if (selectedTile.selected !== ""){ //Determine possible moves
       let vectors = [];
       let startingpoint = {X : selectedTile.coordX, Y : selectedTile.coordY};
-      switch(selectedTile.piece.type){
-        case "Pawn" : //Forward 1 or 2, or attack diagonal forward 1
-          vectors = [
-              {X : 0, Y : (this.state.user === "White" ? -1 : 1), dist : (selectedTile.piece.firstMove ? 2 : 1), canAttack : "no"},
-              {X : 1, Y : (this.state.user === "White" ? -1 : 1), dist : 1, canAttack : "only"},
-              {X : -1, Y : (this.state.user === "White" ? -1 : 1), dist : 1, canAttack : "only"},
-            ];
-          break;
-        case "Rook" : //Forward back right and left any number
-          vectors = [
-              {X : 1, Y : 0, dist : 8, canAttack : "yes"},
-              {X : -1, Y : 0, dist : 8, canAttack : "yes"},
-              {X : 0, Y : 1, dist : 8, canAttack : "yes"},
-              {X : 0, Y : -1, dist : 8, canAttack : "yes"},
-            ];
-          break;
-        case "Bishop" : //diagonal any number forward or back
-          vectors = [
-              {X : 1, Y : 1, dist : 8, canAttack : "yes"},
-              {X : -1, Y : 1, dist : 8, canAttack : "yes"},
-              {X : 1, Y : -1, dist : 8, canAttack : "yes"},
-              {X : -1, Y : -1, dist : 8, canAttack : "yes"},
-            ];
-          break;
-        case "Knight" : //L shaped, +/-2, then +/-1 perpindicular
-          vectors = [
-              {X : 2, Y : 1, dist : 1, canAttack : "yes"},
-              {X : 2, Y : -1, dist : 1, canAttack : "yes"},
-              {X : -2, Y : 1, dist : 1, canAttack : "yes"},
-              {X : -2, Y : -1, dist : 1, canAttack : "yes"},
-              {X : 1, Y : 2, dist : 1, canAttack : "yes"},
-              {X : -1, Y : 2, dist : 1, canAttack : "yes"},
-              {X : 1, Y : -2, dist : 1, canAttack : "yes"},
-              {X : -1, Y : -2, dist : 1, canAttack : "yes"}
-            ];
-          break;
-        case "King" : //Forward back right left or diagonal 1
-          vectors = [
-              {X : 1, Y : 1, dist : 1, canAttack : "yes"},
-              {X : -1, Y : 1, dist : 1, canAttack : "yes"},
-              {X : 1, Y : -1, dist : 1, canAttack : "yes"},
-              {X : -1, Y : -1, dist : 1, canAttack : "yes"},
-              {X : 1, Y : 0, dist : 1, canAttack : "yes"},
-              {X : -1, Y : 0, dist : 1, canAttack : "yes"},
-              {X : 0, Y : 1, dist : 1, canAttack : "yes"},
-              {X : 0, Y : -1, dist : 1, canAttack : "yes"}
-            ];
-          break;
-        case "Queen" : //Forward back right left or diagonal any number
-          vectors = [
-              {X : 1, Y : 1, dist : 8, canAttack : "yes"},
-              {X : -1, Y : 1, dist : 8, canAttack : "yes"},
-              {X : 1, Y : -1, dist : 8, canAttack : "yes"},
-              {X : -1, Y : -1, dist : 8, canAttack : "yes"},
-              {X : 1, Y : 0, dist : 8, canAttack : "yes"},
-              {X : -1, Y : 0, dist : 8, canAttack : "yes"},
-              {X : 0, Y : 1, dist : 8, canAttack : "yes"},
-              {X : 0, Y : -1, dist : 8, canAttack : "yes"}
-            ];
-          break;
-      }
-      possibleMoves = possibleMoves.concat(this.calculateMoves(workingBoard, vectors, startingpoint));
+      possibleMoves = possibleMoves.concat(this.calculateMoves(workingBoard, selectedTile.piece.vectors, startingpoint, selectedTile.piece.firstMove));
     }
 
     for (let option in possibleMoves) {
@@ -183,14 +133,15 @@ class Game extends React.Component {
   return workingBoard ;
   }
 
-  calculateMoves(board, vectors, coords) {
+  calculateMoves(board, vectors, coords, firstMove) {
     let possibleMoves = [];
     for (let vector in vectors) {
       let testingCoords = {X : coords.X, Y : coords.Y};
       let dist = 0;
+      const maxDist = (vectors[vector].hasOwnProperty('firstMove') & firstMove) ? vectors[vector].firstMove : vectors[vector].dist;
       testingCoords.X += vectors[vector].X;
       testingCoords.Y += vectors[vector].Y;
-      while (dist < vectors[vector].dist && testingCoords.X < 9 && testingCoords.Y < 9 && testingCoords.X > 0 && testingCoords.Y > 0) {
+      while (dist < maxDist && testingCoords.X < 9 && testingCoords.Y < 9 && testingCoords.X > 0 && testingCoords.Y > 0) {
         if (!isEmpty(board[(testingCoords.X - 1) + (testingCoords.Y - 1) * 8].piece)) {
           if (board[(testingCoords.X - 1) + (testingCoords.Y - 1) * 8].piece.owner !== this.state.user && vectors[vector].canAttack !== "no")
             possibleMoves.push(board[(testingCoords.X - 1) + (testingCoords.Y - 1) * 8]);
@@ -205,14 +156,20 @@ class Game extends React.Component {
     return possibleMoves;
   }
 
+  handleForfeit() {
+    this.props.socket.emit("forfeit");
+  }
+
   render() {
-    console.log(JSON.stringify(this.state.moveList));
     return (
       <div className="Game">
+        {(this.state.activePlayer === this.state.user) 
+          ? "Your turn"
+          : "Waiting for opponent"
+        }
         <Board user={this.state.user} handleClick={this.handleClickTile} tiles={this.state.board}/>
-        <button>Forfeit</button>
-        <button onClick={() => (this.setState((prevState) => ({user : (prevState.user === "White" ? "Black" : "White")})))}>Swap Player</button>
-      </div>
+        <button onClick={this.handleForfeit}>Forfeit</button>
+        </div>
     );
   }
 }
