@@ -1,5 +1,6 @@
 import React from 'react';
 import './StartPage.css';
+import { v4 as uuidv4 } from 'uuid';
 
 class StartPage extends React.Component {
   constructor() {
@@ -72,7 +73,7 @@ class StartPage extends React.Component {
       <div className="StartPage">
         <h1>Chess game   {this.state.playerCount}/2</h1>
         Username: <input value={this.state.inputUsername} onChange={(e) => {this.setState({inputUsername : e.target.value})}}/>
-        <button onClick={this.handleUser}>Join</button>
+        <button onClick={this.handleUser}>Set Username</button>
         <div>Username: {this.state.username} Current room: {this.state.roomID}</div>
         Room to join: <input value={this.state.inputRoomID} onChange={(e) => {this.setState({inputRoomID : e.target.value})}}/>
         <button onClick={this.handleJoin}>Join</button>
@@ -80,7 +81,7 @@ class StartPage extends React.Component {
         <button onClick={this.handleSend}>Send</button>
         {(this.state.playerCount == 2) ? <button className="StartButton" onClick={this.handleStart}>Start Game</button>:<></>}
         <div className="chatBox">
-          <ul>{this.state.chatLog.split("\n").map((text) => (<li>{text}</li>))}</ul>
+          <ul>{this.state.chatLog.split("\n").map((text) => (<li key={uuidv4()}>{text}</li>))}</ul>
         </div>
       </div>
     );
