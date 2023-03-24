@@ -1,4 +1,5 @@
 import React from 'react';
+import './EndGame.css';
 
 class EndGame extends React.Component {
   // constructor() {
@@ -8,8 +9,11 @@ class EndGame extends React.Component {
   render(){
     return (
       <div className="endGame">
-        {this.props.winner}
-        <button></button>
+        <div className="Heading">{(this.props.winner === this.props.color)
+        ? "You win!"
+        : "You lost..."
+      }</div>
+        <button onClick={this.props.resetGame}>Return to Main Menu</button>
       </div>
     );
   }
